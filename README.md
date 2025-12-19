@@ -1,2 +1,2 @@
 # ai-plagiarism-detector
-AI-based Plagiarism derection system using NLP
+AI-based Plagiarism detection system using NLP
