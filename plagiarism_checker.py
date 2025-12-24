@@ -1,37 +1,32 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import nltk
 import string
-
+import nltk
 nltk.download('stopwords')
 from nltk.corpus import stopwords
 
-
+# ----------------- Preprocess Text -----------------
 def preprocess_text(text):
-    # Convert to lowercase
+    """
+    Converts text to lowercase, removes punctuation and stopwords.
+    """
     text = text.lower()
-
-    # Remove punctuation
     text = text.translate(str.maketrans('', '', string.punctuation))
-
-    # Remove stopwords
     stop_words = set(stopwords.words('english'))
     words = text.split()
-    filtered_words = [word for word in words if word not in stop_words]
+    filtered = [w for w in words if w not in stop_words]
+    return " ".join(filtered)
 
-    return " ".join(filtered_words)
-
-
+# ----------------- Check Plagiarism -----------------
 def check_plagiarism(text1, text2):
-    # Preprocess texts
+    """
+    Returns the plagiarism similarity score (%) between two texts.
+    """
     text1 = preprocess_text(text1)
     text2 = preprocess_text(text2)
 
-    # TF-IDF Vectorization
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform([text1, text2])
 
-    # Cosine Similarity
-    similarity_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
-
-    return round(similarity_score[0][0] * 100, 2)
+    score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
+    return round(score[0][0]*100, 2)
