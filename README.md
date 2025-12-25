@@ -23,11 +23,6 @@ This project automates plagiarism detection using machine learning and NLP techn
 - Scikit-learn
 - Pandas
 
-## How to Use
-   Run Streamlit app:
-   ```bash
-   streamlit run app.py
-
 ## Day
 
 Day 1
@@ -44,3 +39,8 @@ Day 6
 Rewriting plagiarized sentences using WordNet synonyms.
 Day 7
 UI improvements, two-text/file comparison, optional download of report.
+
+## How to Use
+   Run Streamlit app:
+   ```bash
+   streamlit run app.py
