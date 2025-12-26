@@ -1,6 +1,9 @@
-streamlit
-pandas
-nltk
-scikit-learn
-PyPDF2
-python-docx
+streamlit             # Web app framework
+pandas                # For dataset handling (if using CSV reference texts)
+nltk                  # For sentence tokenization, word tokenization
+scikit-learn          # For TF-IDF and cosine similarity
+PyPDF2                # PDF file extraction
+python-docx           # DOCX file extraction
+beautifulsoup4        # Optional: if you use web scraping for references
+requests              # Optional: for web requests (if fetching online references)
+duckduckgo-search     # Optional: if searching web references

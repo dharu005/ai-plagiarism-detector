@@ -2,6 +2,13 @@ import streamlit as st
 from plagiarism_checker import check_plagiarism
 import PyPDF2
 import docx
+import nltk
+from nltk.tokenize import sent_tokenize
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+nltk.download('punkt')
+
 
 # Page Configuration
 st.set_page_config(
@@ -11,6 +18,7 @@ st.set_page_config(
 
 # App Title
 st.title("AI-Based Plagiarism Detection System")
+st.write("Sentence-wise plagiarism detection with highlighted UI")
 
 # Description
 st.write(
@@ -57,43 +65,63 @@ def extract_text(file):
     else:
         st.warning("Unsupported file type")
         return ""
+    
+# ---------------- SENTENCE-WISE CHECK ----------------
+def sentence_plagiarism(sentences, reference):
+    vectorizer = TfidfVectorizer()
+    tfidf = vectorizer.fit_transform([reference] + sentences)
+    ref_vec = tfidf[0:1]
+    sent_vec = tfidf[1:]
+    scores = cosine_similarity(sent_vec, ref_vec)
+    return scores
 
 # ----------------- Check Plagiarism -----------------
 if st.button("Check Plagiarism"):
-    # Text Input Mode
-    if mode == "Text Input":
-        if input_text.strip() == "" or reference_text.strip() == "":
-            st.warning("Please enter text in both fields.")
-        else:
-            score = check_plagiarism(input_text, reference_text)
-            st.subheader("Result")
-            st.success(f"Plagiarism Similarity Score: {score}%")
-
-            if score > 80:
-                st.error("⚠️ High plagiarism detected")
-            elif score > 40:
-                st.warning("⚠️ Moderate plagiarism detected")
-            else:
-                st.info("✅ Low plagiarism detected")
-
-    # File Upload Mode
-    elif mode == "File Upload":
+    if mode == "File Upload":
         if uploaded_file is None:
-            st.warning("Please upload a file to check.")
-        elif reference_text.strip() == "":
-            st.warning("Please enter reference text for comparison.")
-        else:
-            file_text = extract_text(uploaded_file)
-            if file_text.strip() == "":
-                st.warning("Uploaded file is empty or could not extract text.")
-            else:
-                score = check_plagiarism(file_text, reference_text)
-                st.subheader("Result")
-                st.success(f"Plagiarism Similarity Score: {score}%")
+            st.warning("Upload a file")
+            st.stop()
+        input_text = extract_text(uploaded_file)
 
-                if score > 80:
-                    st.error("⚠️ High plagiarism detected")
-                elif score > 40:
-                    st.warning("⚠️ Moderate plagiarism detected")
-                else:
-                    st.info("✅ Low plagiarism detected")
+    if input_text.strip() == "" or reference_text.strip() == "":
+        st.warning("Please provide both texts")
+        st.stop()
+
+    sentences = sent_tokenize(input_text)
+    scores = sentence_plagiarism(sentences, reference_text)
+
+    st.subheader("Sentence-wise Analysis (Day 5)")
+
+    for i, sentence in enumerate(sentences):
+        percent = round(scores[i][0] * 100, 2)
+
+        if percent > 40:
+            st.markdown(
+                f"""
+                <div style="
+                    background-color:#ffe5e5;
+                    padding:10px;
+                    border-left:6px solid red;
+                    border-radius:8px;
+                    margin-bottom:10px;">
+                    <b>Plagiarized ({percent}%)</b><br>
+                    {sentence}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f"""
+                <div style="
+                    background-color:#e5ffe5;
+                    padding:10px;
+                    border-left:6px solid green;
+                    border-radius:8px;
+                    margin-bottom:10px;">
+                    <b>Original ({percent}%)</b><br>
+                    {sentence}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
