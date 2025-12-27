@@ -25,19 +25,19 @@ This project automates plagiarism detection using machine learning and NLP techn
 ## 📊 Day
 
 Day 1
-Project setup, GitHub repo, basic text input plagiarism check.
+   Project setup, GitHub repo, basic text input plagiarism check.
 Day 2
-Text preprocessing, plagiarism score interpretation (low/moderate/high).
+   Text preprocessing, plagiarism score interpretation (low/moderate/high).
 Day 3
-File upload support (TXT, PDF, DOCX), extract text from files.
+   File upload support (TXT, PDF, DOCX), extract text from files.
 Day 4
-Sentence-wise plagiarism detection (splitting text into sentences).
+   Sentence-wise plagiarism detection (splitting text into sentences).
 Day 5
-Highlight plagiarized vs original sentences in the UI.
+   Highlight plagiarized vs original sentences in the UI.
 Day 6
-Rewriting plagiarized sentences using WordNet synonyms.
+   Rewriting plagiarized sentences using WordNet synonyms.
 Day 7
-UI improvements, two-text/file comparison, optional download of report.
+   UI improvements, two-text/file comparison, optional download of report.
 
 ## 🚀 How to Use
    Run Streamlit app:
