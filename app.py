@@ -1,157 +1,330 @@
 import streamlit as st
-from plagiarism_checker import check_plagiarism
-import PyPDF2
-import docx
+import pandas as pd
 import nltk
+import requests
+from bs4 import BeautifulSoup
+from duckduckgo_search import DDGS
+from docx import Document
+from PyPDF2 import PdfReader
 from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk import pos_tag
+from nltk.corpus import wordnet
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import pandas as pd
-from nltk.corpus import wordnet
-nltk.download('punkt')
-nltk.download('wordnet')
 
-# ------------------ Page Configuration ------------------
-
+# ------------------ PAGE CONFIG ------------------
 st.set_page_config(
-    page_title="Plagiarism Detection and correction System",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Plagiarism Detection and Correction System",
+    layout="wide"
 )
 
-# ------------------ Stylish Gradient Title ------------------
+# ------------------ DARK GRADIENT THEME ------------------
 st.markdown("""
-    <h1 style='text-align: center; background: linear-gradient(to right, #30CFD0 0%, #330867 100%);
-                -webkit-background-clip: text; color: transparent; font-family: "Segoe UI", sans-serif;'>
-        Plagiarism Detection and Correction System
-    </h1>
+<style>
+/* ---------------- APP BACKGROUND ---------------- */
+.stApp {
+    background: linear-gradient(135deg, #7c3aed, #3b82f6, #ec4899);
+    color: #f3f4f6;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* ---------------- TITLE ---------------- */
+h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.8rem;
+    font-weight: 700;
+    text-align: center;
+    color: #ffffff;
+    margin-bottom: 25px;
+}
+
+/* ---------------- HEADINGS ---------------- */
+h2, h3 {
+    color: #e0e7ff;
+    font-weight: 600;
+}
+
+/* ---------------- SENTENCE BOXES ---------------- */
+.result-box {
+    padding: 15px;
+    border-radius: 15px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    background: rgba(0,0,0,0.3); /* slightly transparent dark */
+    color: #f3f4f6;
+    border-left: 6px solid; /* colored left line */
+}
+
+.original {
+    border-color: #10b981; /* green line */
+}
+
+.plagiarized {
+    border-color: #ef4444; /* red line */
+}
+
+/* ---------------- REWRITTEN CONTENT ---------------- */
+.rewrite-box {
+    background: rgba(0,0,0,0.3); /* subtle dark background */
+    padding: 18px;
+    border-radius: 15px;
+    border: 1px solid #7c3aed;
+    line-height: 1.6;
+    color: #000000; /* black text */
+}
+
+/* ---------------- INPUTS ---------------- */
+textarea, input, .stFileUploader {
+    background-color: rgba(0,0,0,0.5) !important;
+    color: #f3f4f6 !important;
+    border-radius: 10px !important;
+    border: 1px solid #7c3aed !important;
+}
+
+/* ---------------- BUTTON ---------------- */
+button[kind="primary"] {
+    background: linear-gradient(90deg, #7c3aed, #3b82f6, #ec4899) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    padding: 0.6rem 1.2rem !important;
+    transition: 0.3s;
+}
+button[kind="primary"]:hover {
+    opacity: 0.85;
+}
+
+/* ---------------- COLUMNS ---------------- */
+.stColumn > div {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* ---------------- FOOTER ---------------- */
+.footer {
+    text-align: center;
+    color: #f3f4f6;
+    margin-top: 40px;
+    font-size: 13px;
+}
+</style>
 """, unsafe_allow_html=True)
 
-st.markdown("<p style='text-align:center; font-size:16px; color:gray;'>Sentence-wise plagiarism detection with highlights</p>", unsafe_allow_html=True)
+# ------------------ FONT STYLE ------------------
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Lobster&family=Montserrat:wght@400;600;700;900&display=swap');
 
-# ----------------- Input Mode -----------------
-mode = st.radio("Choose Input Mode", ["Text Input", "File Upload"])
-input_text = ""
-reference_text = ""
+/* Title */
+h1 {
+    font-family: 'Lobster', cursive;
+    font-size: 4rem;
+    font-weight: 900;
+    text-align: center;
+    color: #ffffff; /* filled text for clarity */
+    background: linear-gradient(90deg, #7c3aed, #3b82f6, #ec4899);
+    padding: 15px 30px;
+    border-radius: 15px;
+    display: inline-block;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.4);
+    margin-bottom: 40px;
+}
 
-# ----------------- Text Input -----------------
-if mode == "Text Input":
-    input_text = st.text_area(
-        "Enter the original text:",
-        height=200
-    )
-    reference_text = st.text_area(
-        "Enter the reference text:",
-        height=200
-    )
+/* Headings */
+h2, h3, label {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    color: #f3f4f6;
+}
 
-# ----------------- File Upload -----------------
-elif mode == "File Upload":
-    uploaded_file = st.file_uploader("Upload a file", type=["txt","pdf","docx"])
-    reference_text = st.text_area(
-        "Enter reference text for comparison:",
-        height=200
-    )
+/* Inputs, radio buttons, select boxes, file uploader labels */
+.stRadio label, .stSelectbox label, .stTextArea label, .stFileUploader label {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    color: #f3f4f6;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ----------------- File Extraction Function -----------------
+
+# ------------------ TITLE ------------------
+st.markdown("""
+<h1 style="
+    font-family: 'Cursive', 'Poppins', sans-serif;
+    font-size: 4rem;
+    font-weight: 900;
+    text-align: center;
+    color: #ffffff; /* white fill for clarity */
+    background: linear-gradient(90deg, #7c3aed, #3b82f6, #ec4899);
+    -webkit-background-clip: padding-box; /* normal fill */
+    padding: 15px 20px;
+    border-radius: 15px;
+    display: inline-block;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.4);
+    margin-bottom: 40px;
+">
+ Plagiarism Detection and Correction System 
+</h1>
+""", unsafe_allow_html=True)
+
+# ------------------ NLTK SETUP ------------------
+@st.cache_resource
+def setup_nltk():
+    nltk.download("punkt")
+    nltk.download("averaged_perceptron_tagger")
+    nltk.download("wordnet")
+    nltk.download("omw-1.4")
+setup_nltk()
+
+# ------------------ LOAD DATASET ------------------
+@st.cache_data
+def load_dataset():
+    df = pd.read_csv("plagiarism_dataset.csv")
+    return df.iloc[:, 0].astype(str).tolist()
+REFERENCE_TEXTS = load_dataset()
+
+# ------------------ FILE EXTRACTION ------------------
 def extract_text(file):
-    if file.type == "text/plain":
+    if file.name.endswith(".txt"):
         return file.read().decode("utf-8")
-    elif file.type == "application/pdf":
-        pdf = PyPDF2.PdfReader(file)
-        return "\n".join(page.extract_text() or "" for page in pdf.pages)
-    elif file.type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                       "application/msword"]:
-        doc = docx.Document(file)
-        return "\n".join(para.text for para in doc.paragraphs)
-    else:
-        st.warning("Unsupported file type")
-        return ""
-    
-# ---------------- SENTENCE-WISE CHECK ----------------
-def sentence_plagiarism(sentences, reference):
-    vectorizer = TfidfVectorizer()
-    tfidf = vectorizer.fit_transform([reference] + sentences)
-    ref_vec = tfidf[0:1]
-    sent_vec = tfidf[1:]
-    scores = cosine_similarity(sent_vec, ref_vec)
-    return scores
+    elif file.name.endswith(".pdf"):
+        reader = PdfReader(file)
+        return " ".join(p.extract_text() or "" for p in reader.pages)
+    elif file.name.endswith(".docx"):
+        doc = Document(file)
+        return " ".join(p.text for p in doc.paragraphs)
+    return ""
 
-# ----------------- Simple Rewriting Function -----------------
+# ------------------ PLAGIARISM DETECTION ------------------
+def detect_plagiarism(sentences, references, threshold=0.30):
+    vectorizer = TfidfVectorizer(stop_words="english")
+    tfidf = vectorizer.fit_transform(references + sentences)
+    ref_vec = tfidf[:len(references)]
+    sent_vec = tfidf[len(references):]
+    similarity_matrix = cosine_similarity(sent_vec, ref_vec)
+    results = []
+    for i, sent in enumerate(sentences):
+        score = similarity_matrix[i].max()
+        results.append((sent, score, score >= threshold))
+    return results
+
+# ------------------ WEB REFERENCES ------------------
+def web_references(text):
+    query = " ".join(text.split()[:10])
+    refs = []
+    with DDGS() as ddgs:
+        results = list(ddgs.text(query, max_results=5))
+    for r in results:
+        try:
+            page = requests.get(r["href"], timeout=5)
+            soup = BeautifulSoup(page.text, "html.parser")
+            content = " ".join(p.get_text() for p in soup.find_all("p"))
+            if content.strip():
+                refs.append(content)
+        except:
+            pass
+    return refs
+
+# ------------------ WORDNET REWRITE ------------------
+def get_wordnet_pos(tag):
+    if tag.startswith("J"): return wordnet.ADJ
+    if tag.startswith("V"): return wordnet.VERB
+    if tag.startswith("N"): return wordnet.NOUN
+    if tag.startswith("R"): return wordnet.ADV
+    return None
+
 def rewrite_sentence(sentence):
     words = word_tokenize(sentence)
-    new_words = []
-    for word in words:
-        synonyms = wordnet.synsets(word)
-        if synonyms:
-            # Take the first lemma as a simple replacement
-            new_word = synonyms[0].lemmas()[0].name().replace("_", " ")
-            if new_word.lower() != word.lower():
-                new_words.append(new_word)
-            else:
-                new_words.append(word)
+    tagged = pos_tag(words)
+    rewritten = []
+    for word, tag in tagged:
+        wn_pos = get_wordnet_pos(tag)
+        if wn_pos:
+            synsets = wordnet.synsets(word, pos=wn_pos)
+            rewritten.append(
+                synsets[0].lemmas()[0].name().replace("_", " ") if synsets else word
+            )
         else:
-            new_words.append(word)
-    return " ".join(new_words)
+            rewritten.append(word)
+    return " ".join(rewritten)[:1].upper() + " ".join(rewritten)[1:]
 
+# ------------------ UI ------------------
+st.markdown("##  Configuration")
+col1, col2 = st.columns([1, 3])
 
-# ----------------- Check Plagiarism -----------------
-if st.button("Check Plagiarism"):
-    if mode == "File Upload":
-        if uploaded_file is None:
-            st.warning("Upload a file")
-            st.stop()
-        input_text = extract_text(uploaded_file)
+with col1:
+    mode = st.radio(
+        "Mode",
+        ["Text Input", "File Input", "Compare Two Texts", "Compare Two Files"]
+    )
+    source = st.selectbox(
+        "Detection Source",
+        ["Hybrid", "Dataset", "Web"]
+    )
 
-    if input_text.strip() == "" or reference_text.strip() == "":
-        st.warning("Please provide both texts")
+with col2:
+    text1 = text2 = ""
+    if mode == "Text Input":
+        text1 = st.text_area("Enter text", height=180)
+    elif mode == "File Input":
+        file = st.file_uploader("Upload file", ["pdf", "docx", "txt"])
+        if file: text1 = extract_text(file)
+    elif mode == "Compare Two Texts":
+        text1 = st.text_area("Text 1", height=120)
+        text2 = st.text_area("Text 2", height=120)
+    elif mode == "Compare Two Files":
+        f1 = st.file_uploader("File 1", ["pdf", "docx", "txt"], key="1")
+        f2 = st.file_uploader("File 2", ["pdf", "docx", "txt"], key="2")
+        if f1 and f2:
+            text1 = extract_text(f1)
+            text2 = extract_text(f2)
+
+# ------------------ CHECK BUTTON ------------------
+st.markdown("<br>", unsafe_allow_html=True)
+if st.button(" 🚀Check Plagiarism", use_container_width=True):
+    if not text1.strip():
+        st.warning("Please provide input text")
         st.stop()
 
-    sentences = sent_tokenize(input_text)
-    scores = sentence_plagiarism(sentences, reference_text)
+    final_output = []
+    if mode in ["Compare Two Texts", "Compare Two Files"]:
+        s1 = sent_tokenize(text1)
+        s2 = sent_tokenize(text2)
+        results = detect_plagiarism(s1, s2)
+    else:
+        sentences = sent_tokenize(text1)
+        references = REFERENCE_TEXTS.copy()
+        if source != "Dataset Only":
+            references += web_references(text1)
+        results = detect_plagiarism(sentences, references)
 
-    st.subheader("Sentence-wise Analysis ")
-    report_data = []
-    for i, sentence in enumerate(sentences):
-        percent = round(scores[i][0] * 100, 2)
-
-        if percent > 40:
+    st.markdown("##  Sentence-wise Analysis")
+    for sent, score, plag in results:
+        percent = int(score * 100)
+        if plag:
+            rewritten = rewrite_sentence(sent)
+            final_output.append(rewritten)
             st.markdown(
-                f"""
-                <div style="
-                    background-color:#ffe5e5;
-                    padding:10px;
-                    border-left:6px solid red;
-                    border-radius:8px;
-                    margin-bottom:10px;">
-                    <b>Plagiarized ({percent}%)</b><br>
-                    {sentence}
-                </div>
-                """,
+                f"<div class='result-box plagiarized'><b>Plagiarized ({percent}%)</b><br>{sent}</div>",
                 unsafe_allow_html=True
             )
         else:
+            final_output.append(sent)
             st.markdown(
-                f"""
-                <div style="
-                    background-color:#e5ffe5;
-                    padding:10px;
-                    border-left:6px solid green;
-                    border-radius:8px;
-                    margin-bottom:10px;">
-                    <b>Original ({percent}%)</b><br>
-                    {sentence}
-                </div>
-                """,
+                f"<div class='result-box original'><b>Original ({percent}%)</b><br>{sent}</div>",
                 unsafe_allow_html=True
             )
 
-    # ---------------- Download Report ----------------
-    report_df = pd.DataFrame(report_data)
-    csv = report_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Sentence-wise Report as CSV",
-        data=csv,
-        file_name="plagiarism_report.csv",
-        mime="text/csv"
+    st.markdown("##  Rewritten Content")
+    st.markdown(
+        f"<div class='rewrite-box'>{' '.join(final_output)}</div>",
+        unsafe_allow_html=True
     )
+
+# ------------------ FOOTER ------------------
+st.markdown("""
+<div class="footer">
+AI Plagiarism Detection System • TF-IDF • Cosine Similarity • WordNet • Dataset + Web
+</div>
+""", unsafe_allow_html=True)
