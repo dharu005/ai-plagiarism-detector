@@ -57,3 +57,11 @@ Plagiarized sentences are identified and automatically rewritten using **WordNet
    Run Streamlit app:
    ```bash
    streamlit run app.py
+```
+## Screenshots
+
+<img width="1920" height="1020" alt="Screenshot 2025-12-31 084836" src="https://github.com/user-attachments/assets/fe7363e2-ba20-4480-b932-b1f850bfeabd" />
+
+<img width="1920" height="1020" alt="Screenshot 2025-12-31 084743" src="https://github.com/user-attachments/assets/96be061b-7572-4b82-90fd-9cfd6c2c0529" />
+
+
