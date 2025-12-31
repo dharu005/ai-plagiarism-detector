@@ -49,9 +49,9 @@ Plagiarized sentences are identified and automatically rewritten using **WordNet
 ## 🚀 How to Run the Project
 
 1️⃣ Install Dependencies
-
+```bash
    pip install -r requirements.txt
-
+```
 2️⃣Run the Application
 
    Run Streamlit app:
